@@ -1,34 +1,26 @@
+from dataclasses import asdict, dataclass, field
 from datetime import datetime, timedelta
+import json
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
-from dataclasses import asdict, dataclass, field
-import json
 
-from kivy.app import App
-from kivy.uix.boxlayout import BoxLayout
-from kivy.uix.button import Button
-from kivy.uix.label import Label
-from kivy.uix.scrollview import ScrollView
+import flet as ft
 
 
 MID_SUBPOSITIONS = {"MID", "DM", "CM", "AMF", "LM", "RM", "LW", "RW"}
 
 
 def get_base_dir() -> Path:
-    app = App.get_running_app()
-    candidates: List[Path] = []
-    if app is not None and getattr(app, "user_data_dir", None):
-        candidates.append(Path(app.user_data_dir) / "fantastiy")
-    candidates.append(Path.home() / "fantastiy")
-    candidates.append(Path.cwd() / "fantastiy_data")
-
+    candidates: List[Path] = [
+        Path.home() / "fantastiy",
+        Path.cwd() / "fantastiy_data",
+    ]
     for candidate in candidates:
         try:
             candidate.mkdir(parents=True, exist_ok=True)
             return candidate
         except Exception:
             continue
-
     return Path(".")
 
 
@@ -410,48 +402,55 @@ def run_scenario_text(scenario: int) -> str:
     return "\n".join(lines)
 
 
-class FantasyUI(BoxLayout):
-    def __init__(self, **kwargs: Any) -> None:
-        super().__init__(orientation="vertical", padding=12, spacing=8, **kwargs)
+def main(page: ft.Page) -> None:
+    page.title = "Fantasy System App"
+    page.padding = 14
+    page.scroll = ft.ScrollMode.AUTO
 
-        self.add_widget(Label(text="Fantasy System App", size_hint_y=None, height=44))
+    output_text = ft.Text(
+        value="Press a button above to run a scenario.",
+        selectable=True,
+        size=14,
+    )
 
-        btn_row = BoxLayout(size_hint_y=None, height=48, spacing=6)
-        b1 = Button(text="1. Transfers (-3)")
-        b2 = Button(text="2. Deadline")
-        b3 = Button(text="3. Lineup & Report")
-        b1.bind(on_press=lambda _: self.show_scenario(1))
-        b2.bind(on_press=lambda _: self.show_scenario(2))
-        b3.bind(on_press=lambda _: self.show_scenario(3))
-        btn_row.add_widget(b1)
-        btn_row.add_widget(b2)
-        btn_row.add_widget(b3)
-        self.add_widget(btn_row)
+    def on_scenario_click(scenario: int) -> None:
+        output_text.value = run_scenario_text(scenario)
+        page.update()
 
-        self.output_label = Label(
-            text="Press a button above to run a scenario.",
-            size_hint_y=None,
-            halign="left",
-            valign="top",
-        )
-        self.output_label.bind(texture_size=self._update_height)
-        self.output_label.bind(width=lambda inst, w: setattr(inst, "text_size", (w, None)))
+    header = ft.Text("Fantasy System App", size=22, weight=ft.FontWeight.BOLD)
 
-        scroll = ScrollView()
-        scroll.add_widget(self.output_label)
-        self.add_widget(scroll)
+    buttons_row = ft.ResponsiveRow(
+        controls=[
+            ft.ElevatedButton(
+                "1. Transfers (-3)",
+                on_click=lambda _: on_scenario_click(1),
+                col={"xs": 12, "sm": 4},
+            ),
+            ft.ElevatedButton(
+                "2. Deadline",
+                on_click=lambda _: on_scenario_click(2),
+                col={"xs": 12, "sm": 4},
+            ),
+            ft.ElevatedButton(
+                "3. Lineup & Report",
+                on_click=lambda _: on_scenario_click(3),
+                col={"xs": 12, "sm": 4},
+            ),
+        ],
+        spacing=8,
+        run_spacing=8,
+    )
 
-    def _update_height(self, instance: Label, size: Tuple[float, float]) -> None:
-        instance.height = max(size[1] + 20, 200)
+    output_card = ft.Container(
+        content=ft.Column([output_text], scroll=ft.ScrollMode.AUTO),
+        padding=12,
+        border=ft.border.all(1, ft.Colors.GREY_400),
+        border_radius=8,
+        expand=True,
+    )
 
-    def show_scenario(self, scenario: int) -> None:
-        self.output_label.text = run_scenario_text(scenario)
-
-
-class FantasyApp(App):
-    def build(self) -> FantasyUI:
-        return FantasyUI()
+    page.add(header, buttons_row, output_card)
 
 
 if __name__ == "__main__":
-    FantasyApp().run()
+    ft.app(target=main)
