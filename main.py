@@ -15,19 +15,21 @@ MID_SUBPOSITIONS = {"MID", "DM", "CM", "AMF", "LM", "RM", "LW", "RW"}
 
 
 def get_base_dir() -> Path:
-    preferred = Path("/storage/emulated/0/Documents/fantastiy")
-    try:
-        preferred.mkdir(parents=True, exist_ok=True)
-        return preferred
-    except OSError:
-        fallback = Path.cwd()
-        fallback.mkdir(parents=True, exist_ok=True)
-        return fallback
+    app = App.get_running_app()
+    candidates: List[Path] = []
+    if app is not None and getattr(app, "user_data_dir", None):
+        candidates.append(Path(app.user_data_dir) / "fantastiy")
+    candidates.append(Path.home() / "fantastiy")
+    candidates.append(Path.cwd() / "fantastiy_data")
 
+    for candidate in candidates:
+        try:
+            candidate.mkdir(parents=True, exist_ok=True)
+            return candidate
+        except Exception:
+            continue
 
-BASE_DIR = get_base_dir()
-DEMO_SAVE_PATH = BASE_DIR / "fantasy_demo_save.json"
-DEMO_REPORT_PATH = BASE_DIR / "demo_report.txt"
+    return Path(".")
 
 
 def normalize_position(raw_position: str) -> str:
@@ -354,10 +356,14 @@ def build_sample_squad() -> Tuple[List[PlayerMatchStats], List[PlayerMatchStats]
 
 
 def run_scenario_text(scenario: int) -> str:
+    base_dir = get_base_dir()
+    save_path = base_dir / "fantasy_demo_save.json"
+    report_path = base_dir / "demo_report.txt"
+
     starting_11, bench_4 = build_sample_squad()
     tm = TransferManager(current_gameweek=10, match_kickoff=datetime.now() + timedelta(hours=2))
     penalty_pts = 0
-    lines: List[str] = [f"مسار التخزين: {BASE_DIR}", ""]
+    lines: List[str] = [f"مسار التخزين: {base_dir}", ""]
 
     if scenario == 1:
         lines.append("[سيناريو 1] استلاف تبديلة + 3 تبديلات:")
@@ -386,7 +392,7 @@ def run_scenario_text(scenario: int) -> str:
         f"إجمالي نقاط الجولة: {gw_total}",
     ])
 
-    DEMO_SAVE_PATH.write_text(
+    save_path.write_text(
         json.dumps(
             {
                 "saved_at": datetime.now().isoformat(),
@@ -399,8 +405,8 @@ def run_scenario_text(scenario: int) -> str:
         ),
         encoding="utf-8",
     )
-    DEMO_REPORT_PATH.write_text("\n".join(lines), encoding="utf-8")
-    lines.append(f"\nتم حفظ التقرير في:\n{DEMO_REPORT_PATH}")
+    report_path.write_text("\n".join(lines), encoding="utf-8")
+    lines.append(f"\nتم حفظ التقرير في:\n{report_path}")
     return "\n".join(lines)
 
 
